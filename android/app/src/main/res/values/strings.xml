@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">abap2UI5 Shell</string>
+    <string name="menu_endpoint">Set endpoint</string>
+    <string name="dialog_endpoint_title">abap2UI5 endpoint</string>
+    <string name="dialog_endpoint_hint">https://host/sap/bc/z2ui5?sap-client=100</string>
+</resources>

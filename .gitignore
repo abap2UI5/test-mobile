@@ -1,0 +1,13 @@
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.apk
+
+# iOS (project is generated from project.yml via XcodeGen)
+ios/Abap2UI5Shell.xcodeproj/
+ios/Info.plist
+xcuserdata/
+.DS_Store

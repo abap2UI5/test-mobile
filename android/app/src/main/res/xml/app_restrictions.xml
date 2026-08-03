@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MDM managed configuration schema (Phase 4). EMMs read this to offer the
+     keys in their app-config UI; values arrive via RestrictionsManager. -->
+<restrictions xmlns:android="http://schemas.android.com/apk/res/android">
+    <restriction
+        android:key="endpoint_url"
+        android:title="@string/restriction_endpoint_title"
+        android:description="@string/restriction_endpoint_desc"
+        android:restrictionType="string" />
+</restrictions>

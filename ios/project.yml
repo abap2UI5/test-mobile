@@ -17,3 +17,6 @@ targets:
         CFBundleDisplayName: abap2UI5 Shell
         UILaunchScreen: {}
         NSCameraUsageDescription: Camera access is used for barcode scanning.
+        NSFaceIDUsageDescription: Face ID is used for the app lock and to confirm actions.
+    # Push (Phase 2) additionally needs the aps-environment entitlement and
+    # a signed build — add via Signing & Capabilities once a team is set.

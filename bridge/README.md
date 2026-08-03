@@ -8,17 +8,24 @@ into the WebView. The shells bundle byte-identical copies:
 
 Edit here first, then sync the copies.
 
-## Contract v0
+## Contract v1
 
 ```js
 window.abap2ui5Native = {
   available: true,
+  version: 1,
   platform: "android" | "ios",
   getDeviceInfo(): Promise<{platform, model, osVersion, appVersion}>,
   showToast(text): Promise<void>,
-  scanBarcode(): Promise<string>,  // rejects: Error("cancelled") | Error("unsupported")
+  scanBarcode(): Promise<string>,        // rejects: Error("cancelled") | Error("unsupported")
+  getPushToken(): Promise<string>,       // FCM token (Android) / APNs hex (iOS); rejects: Error("unavailable")
+  biometricConfirm(reason): Promise<boolean>,  // false = user cancelled/failed; rejects: Error("unavailable")
 }
 ```
+
+v1 adds `getPushToken` and `biometricConfirm` (additive over v0, per the
+rules below). Feature-detect individual methods when running against an
+older shell: `if (window.abap2ui5Native.getPushToken) ...`.
 
 Rules:
 

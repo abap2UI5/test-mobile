@@ -1,5 +1,5 @@
 /*
- * abap2UI5 native bridge shim — contract v0.
+ * abap2UI5 native bridge shim — contract v1.
  *
  * Source of truth for the JS side of the shell bridge. Both shells inject
  * this file into the WebView after page load:
@@ -50,16 +50,23 @@
     window.webkit.messageHandlers.a2u5Bridge;
   if (!android && !ios) return; // plain browser — no bridge
 
+  function iosCall(method, extra) {
+    return call(function (id) {
+      var msg = { id: id, method: method };
+      if (extra) for (var k in extra) msg[k] = extra[k];
+      ios.postMessage(msg);
+    });
+  }
+
   window.abap2ui5Native = {
     available: true,
+    version: 1,
     platform: android ? "android" : "ios",
 
     // Promise<{platform, model, osVersion, appVersion}>
     getDeviceInfo: function () {
       if (android) return Promise.resolve(JSON.parse(android.platformInfo()));
-      return call(function (id) {
-        ios.postMessage({ id: id, method: "getDeviceInfo" });
-      });
+      return iosCall("getDeviceInfo");
     },
 
     // Promise<void>
@@ -68,9 +75,7 @@
         android.showToast(String(text));
         return Promise.resolve();
       }
-      return call(function (id) {
-        ios.postMessage({ id: id, method: "showToast", text: String(text) });
-      });
+      return iosCall("showToast", { text: String(text) });
     },
 
     // Promise<string> — resolves with the scanned barcode value,
@@ -80,9 +85,29 @@
         return call(function (id) {
           android.scanBarcode(id);
         });
-      return call(function (id) {
-        ios.postMessage({ id: id, method: "scanBarcode" });
-      });
+      return iosCall("scanBarcode");
+    },
+
+    // Promise<string> — the device push token (FCM registration token on
+    // Android, APNs token hex on iOS). Rejects with Error("unavailable")
+    // when push is not configured on the device/shell.
+    getPushToken: function () {
+      if (android)
+        return call(function (id) {
+          android.getPushToken(id);
+        });
+      return iosCall("getPushToken");
+    },
+
+    // Promise<boolean> — true when the user passed the biometric/device
+    // credential check, false when they cancelled or failed it.
+    // Rejects with Error("unavailable") when no authenticator is enrolled.
+    biometricConfirm: function (reason) {
+      if (android)
+        return call(function (id) {
+          android.biometricConfirm(id, String(reason));
+        });
+      return iosCall("biometricConfirm", { reason: String(reason) });
     },
   };
 })();

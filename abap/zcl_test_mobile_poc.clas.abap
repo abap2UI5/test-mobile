@@ -12,7 +12,7 @@ CLASS zcl_test_mobile_poc IMPLEMENTATION.
 
     " Phase-0 demo for the native shell bridge (see /PLAN.md).
     "
-    " The shell injects window.abap2ui5Native (contract v0, /bridge/README.md).
+    " The shell injects window.abap2ui5Native (contract v1, /bridge/README.md).
     " This app feature-detects it and degrades to a MessageToast in a plain
     " browser. The html:script + follow_up_action mechanism used here is the
     " documented interim pattern; Phase 3 replaces it with a proper custom
@@ -41,12 +41,30 @@ CLASS zcl_test_mobile_poc IMPLEMENTATION.
           |  \}).catch(function (e) \{| &&
           |    sap.m.MessageToast.show("Scan failed: " + e.message);| &&
           |  \});| &&
+          |\}| &&
+          |function a2u5BridgePushToken() \{| &&
+          |  if (!window.abap2ui5Native || !window.abap2ui5Native.getPushToken) \{ sap.m.MessageToast.show("Not available"); return; \}| &&
+          |  window.abap2ui5Native.getPushToken().then(function (t) \{| &&
+          |    sap.m.MessageToast.show("Push token: " + t.substring(0, 24) + "...");| &&
+          |  \}).catch(function (e) \{| &&
+          |    sap.m.MessageToast.show("No push token: " + e.message);| &&
+          |  \});| &&
+          |\}| &&
+          |function a2u5BridgeBiometric() \{| &&
+          |  if (!window.abap2ui5Native || !window.abap2ui5Native.biometricConfirm) \{ sap.m.MessageToast.show("Not available"); return; \}| &&
+          |  window.abap2ui5Native.biometricConfirm("Confirm from ABAP").then(function (ok) \{| &&
+          |    sap.m.MessageToast.show(ok ? "Confirmed" : "Cancelled");| &&
+          |  \}).catch(function (e) \{| &&
+          |    sap.m.MessageToast.show("Biometrics unavailable: " + e.message);| &&
+          |  \});| &&
           |\}| ).
 
       view->shell( )->page( `abap2UI5 - Native Shell PoC`
-        )->button( text = `Device Info`   press = client->_event( `INFO` )
-        )->button( text = `Native Toast`  press = client->_event( `TOAST` )
-        )->button( text = `Scan Barcode`  press = client->_event( `SCAN` ) ).
+        )->button( text = `Device Info`        press = client->_event( `INFO` )
+        )->button( text = `Native Toast`       press = client->_event( `TOAST` )
+        )->button( text = `Scan Barcode`       press = client->_event( `SCAN` )
+        )->button( text = `Push Token`         press = client->_event( `PUSH_TOKEN` )
+        )->button( text = `Biometric Confirm`  press = client->_event( `BIOMETRIC` ) ).
 
       client->view_display( view->stringify( ) ).
       RETURN.
@@ -60,6 +78,10 @@ CLASS zcl_test_mobile_poc IMPLEMENTATION.
         client->follow_up_action( `a2u5BridgeToast()` ).
       WHEN `SCAN`.
         client->follow_up_action( `a2u5BridgeScan()` ).
+      WHEN `PUSH_TOKEN`.
+        client->follow_up_action( `a2u5BridgePushToken()` ).
+      WHEN `BIOMETRIC`.
+        client->follow_up_action( `a2u5BridgeBiometric()` ).
     ENDCASE.
 
   ENDMETHOD.

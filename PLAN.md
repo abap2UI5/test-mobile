@@ -92,6 +92,17 @@ iOS `webkit.messageHandlers`) and is fully hidden by the shim. See
 
 ## Phases
 
+Status legend: ✅ implemented in this PoC · 🔶 implemented as far as possible
+without SAP/Google/Apple accounts (remaining steps documented) · ⬜ open.
+
+| Phase | Content | Status |
+|-------|---------|--------|
+| 0 | Plain shells + bridge v0 | ✅ |
+| 1 | Onboarding, app lock, session handling | 🔶 QR onboarding, biometric app lock, background-expiry reload shipped; BTP SDK onboarding flow itself needs SAP repos |
+| 2 | Push | 🔶 FCM/APNs wiring, deep links, MS device registration and ABAP push class shipped; needs Firebase/APNs/MS credentials to activate |
+| 3 | First-class bridge integration | 🔶 iOS VisionKit scanner + bridge v1 (`getPushToken`, `biometricConfirm`) shipped; `NativeBridgeScan` control ready to move (see `frontend-integration/`) |
+| 4 | Hardening & distribution | 🔶 managed config both platforms, CI builds, `docs/DISTRIBUTION.md` checklist; pinning/CSP verification are real-device tasks |
+
 ### Phase 0 — plain shells + bridge (this PoC)
 
 No SDK dependency yet, so everything builds with stock tooling:
@@ -109,7 +120,14 @@ Android shell against a real ABAP backend.
 
 ### Phase 1 — SAP Mobile Services onboarding (the actual "Mobile SDK" step)
 
-Replace the plain URL entry with the BTP SDK onboarding flow:
+Shipped SDK-free in this PoC: QR onboarding (plain URL or JSON payload with
+Mobile Services host/app id — `Onboarding.kt`), biometric/device-credential
+app lock (`AppLock.kt`, iOS `LocalAuthentication`), and reload-after-
+background session handling on both platforms. Auth itself runs in the
+WebView: the first request executes the backend's (or the MS destination's)
+OAuth/SAML redirects and the session cookies persist in the WebView store.
+
+Remaining — replace the plain URL entry with the BTP SDK onboarding flow:
 
 * Create a *Mobile Application* in the Mobile Services cockpit with a
   destination pointing at the ABAP system (`/sap/bc/...` or cloud HTTP
@@ -131,40 +149,50 @@ Note: the BTP SDK artifacts are pulled via SAP's repositories/SDK assistant
 
 ### Phase 2 — push notifications
 
-The feature that justifies the whole effort:
+The feature that justifies the whole effort. Shipped in this PoC:
 
-* Shell registers with FCM/APNs, hands the push token to Mobile Services.
-* ABAP backend calls the Mobile Services push REST API
-  (`/mobileservices/push/...`) — thin ABAP client class, reusable for all
-  abap2UI5 apps.
-* Tap on notification → deep link → shell opens the abap2UI5 URL with a
-  start parameter (`?app=...`), which abap2UI5 already supports for direct
-  app starts.
+* Android: `PushService` (FCM, activates only when a `google-services.json`
+  is present — builds stay account-free without it), notification channel,
+  deep link via data key `url`, device registration against the MS push
+  runtime API (`MobileServicesPush.kt`).
+* iOS: APNs registration, token exposed via `getPushToken()`, notification
+  tap → deep link (`AppDelegate`).
+* ABAP: `zcl_test_mobile_push` — thin client for the MS backend push API,
+  sends alert + deep-link URL to all devices of a user.
+
+Remaining to activate: Firebase project/`google-services.json`, APNs key +
+signed build with `aps-environment`, MS push credentials — plus the Phase-1
+session for the runtime registration call (it returns 401 unauthenticated;
+the BTP SDK's push helper closes exactly this gap).
 
 ### Phase 3 — first-class bridge integration in abap2UI5
 
-* New custom control `NativeBridge` in the [frontend repo](https://github.com/abap2UI5/frontend)
-  (pattern: `CameraPicture.js`) with proper UI5 events, so the scan result
-  arrives in ABAP as a normal `client->_event` with arguments — no
-  hand-written JS in apps anymore:
+Shipped in this PoC:
 
-  ```abap
-  view->_z2ui5( )->native_bridge(
-      scan_result = client->_bind_edit( mv_scanned )
-      onscan      = client->_event( `SCANNED` ) ).
-  ```
-* iOS barcode scanning via VisionKit `DataScannerViewController`.
-* Extend the contract as needed (biometric confirm, NFC, share sheet) —
-  contract versioned in `bridge/README.md`.
+* iOS barcode scanning via VisionKit `DataScannerViewController`
+  (`BarcodeScanner.swift`) — both platforms now implement the full contract.
+* Bridge contract v1: `getPushToken()` and `biometricConfirm(reason)` added
+  (additive, feature-detectable).
+* `NativeBridgeScan` custom control (pattern: `CameraPicture.js`) plus the
+  matching `z2ui5_cl_xml_view_cc` method — staged in
+  [`frontend-integration/`](frontend-integration/) ready to move into the
+  frontend and abap2UI5 repos, so scan results arrive as a normal
+  `client->_event` with arguments instead of hand-written JS.
+
+Remaining: PRs moving the control into the framework repos once the shell
+approach is accepted; contract extensions (NFC, share sheet) as needed.
 
 ### Phase 4 — hardening & distribution
 
-* MDM/app-config (managed configuration for the endpoint URL — no manual
-  entry), Intune/MobileIron rollout, app-store metadata.
-* Client log upload + usage analytics via Mobile Services.
-* CSP review: the SPA must allow the injected shim (shells inject via the
-  native evaluate APIs, which bypass page CSP — verify on both platforms).
-* Certificate pinning decision.
+Shipped in this PoC: managed configuration on both platforms (Android
+restrictions schema, iOS `com.apple.configuration.managed`), CI builds for
+both shells with a bridge-sync gate (`.github/workflows/`), and the
+distribution/hardening guide [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md)
+(EMM rollout, store strategy, security checklist).
+
+Remaining (real-device/production tasks): certificate-pinning decision and
+implementation, CSP verification on hardened UI5 settings, log upload and
+analytics via Mobile Services (needs Phase-1 SDK onboarding).
 
 ## Risks / open questions
 

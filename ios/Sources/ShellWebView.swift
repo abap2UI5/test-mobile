@@ -1,14 +1,17 @@
+import LocalAuthentication
 import SwiftUI
 import UIKit
 import WebKit
 
-/// WKWebView wrapper with the native side of bridge contract v0.
+/// WKWebView wrapper with the native side of bridge contract v1.
 ///
 /// The shared shim (Resources/native-bridge.js, copy of /bridge/native-bridge.js)
 /// is injected as a WKUserScript; calls arrive via the "a2u5Bridge" message
 /// handler and are settled through window.__a2u5BridgeResolve(id, result, error).
 struct ShellWebView: UIViewRepresentable {
     let url: URL
+    /// Increment to force a reload (session-expiry handling, see RootView).
+    var reloadToken: Int = 0
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -34,13 +37,21 @@ struct ShellWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        if webView.url == nil || webView.url?.absoluteString != url.absoluteString {
+        if context.coordinator.lastReloadToken != reloadToken {
+            context.coordinator.lastReloadToken = reloadToken
+            webView.load(URLRequest(url: url))
+            return
+        }
+        if context.coordinator.lastRequestedURL != url.absoluteString {
+            context.coordinator.lastRequestedURL = url.absoluteString
             webView.load(URLRequest(url: url))
         }
     }
 
     final class Coordinator: NSObject, WKScriptMessageHandler {
         weak var webView: WKWebView?
+        var lastReloadToken = 0
+        var lastRequestedURL: String?
 
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
@@ -67,8 +78,34 @@ struct ShellWebView: UIViewRepresentable {
                 resolve(id: id, resultJSON: "null", error: nil)
 
             case "scanBarcode":
-                // Phase 3: VisionKit DataScannerViewController (see PLAN.md).
-                resolve(id: id, resultJSON: "null", error: "unsupported")
+                BarcodeScanner.present { [weak self] value, error in
+                    if let value {
+                        self?.resolve(id: id, resultJSON: self?.jsonString(value) ?? "null", error: nil)
+                    } else {
+                        self?.resolve(id: id, resultJSON: "null", error: error ?? "cancelled")
+                    }
+                }
+
+            case "getPushToken":
+                if let token = UserDefaults.standard.string(forKey: "push_token") {
+                    resolve(id: id, resultJSON: jsonString(token), error: nil)
+                } else {
+                    resolve(id: id, resultJSON: "null", error: "unavailable")
+                }
+
+            case "biometricConfirm":
+                let reason = (body["reason"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                    ?? "Confirm action"
+                let context = LAContext()
+                var laError: NSError?
+                guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &laError) else {
+                    resolve(id: id, resultJSON: "null", error: "unavailable")
+                    return
+                }
+                context.evaluatePolicy(.deviceOwnerAuthentication,
+                                       localizedReason: reason) { [weak self] success, _ in
+                    self?.resolve(id: id, resultJSON: success ? "true" : "false", error: nil)
+                }
 
             default:
                 resolve(id: id, resultJSON: "null", error: "unknown method \(method)")

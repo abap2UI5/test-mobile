@@ -39,7 +39,17 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
-    // Barcode scanning for the Phase-0 bridge demo. Phase 1 swaps the plain
-    // URL entry for the SAP BTP SDK onboarding flow (SAP repos required).
+    // Barcode scanning: bridge scanBarcode() + QR onboarding (Phase 1).
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    // App lock + bridge biometricConfirm() (Phase 1).
+    implementation("androidx.biometric:biometric:1.1.0")
+    // Push (Phase 2) — inert without google-services.json, see below.
+    implementation("com.google.firebase:firebase-messaging:24.0.0")
+}
+
+// Push is opt-in: drop a google-services.json (Firebase console) next to
+// this file to activate FCM. Without it the shell builds and runs, only
+// push stays inactive — keeps SAP-/Google-account-free builds working.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }

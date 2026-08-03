@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">abap2UI5 Shell</string>
+    <string name="menu_endpoint">Set endpoint</string>
+    <string name="menu_qr_onboarding">Scan QR</string>
+    <string name="menu_app_lock_enable">Enable app lock</string>
+    <string name="menu_app_lock_disable">Disable app lock</string>
+    <string name="dialog_endpoint_title">abap2UI5 endpoint</string>
+    <string name="dialog_endpoint_hint">https://host/sap/bc/z2ui5?sap-client=100</string>
+    <string name="qr_onboarding_prompt">Scan the abap2UI5 onboarding QR code</string>
+    <string name="toast_qr_invalid">QR code is not a valid onboarding payload</string>
+    <string name="app_lock_title">Unlock abap2UI5 Shell</string>
+    <string name="restriction_endpoint_title">abap2UI5 endpoint URL</string>
+    <string name="restriction_endpoint_desc">Full URL of the abap2UI5 HTTP service, including sap-client if needed.</string>
+</resources>

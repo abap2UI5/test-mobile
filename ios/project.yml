@@ -1,0 +1,22 @@
+# XcodeGen spec — generate the project with:  xcodegen generate
+name: Abap2UI5Shell
+options:
+  bundleIdPrefix: org.abap2ui5
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  Abap2UI5Shell:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - Resources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: abap2UI5 Shell
+        UILaunchScreen: {}
+        NSCameraUsageDescription: Camera access is used for barcode scanning.
+        NSFaceIDUsageDescription: Face ID is used for the app lock and to confirm actions.
+    # Push (Phase 2) additionally needs the aps-environment entitlement and
+    # a signed build — add via Signing & Capabilities once a team is set.

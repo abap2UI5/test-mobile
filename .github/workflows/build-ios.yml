@@ -1,0 +1,37 @@
+name: build_ios
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - "bridge/**"
+      - ".github/workflows/build-ios.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - "bridge/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify bridge shim is in sync
+        run: diff bridge/native-bridge.js ios/Resources/native-bridge.js
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build (simulator, unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild build \
+            -project Abap2UI5Shell.xcodeproj \
+            -scheme Abap2UI5Shell \
+            -sdk iphonesimulator \
+            CODE_SIGNING_ALLOWED=NO

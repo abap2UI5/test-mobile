@@ -34,8 +34,8 @@ in execution order, with dependencies and acceptance criteria.
 | Test layer | Bridge shim contract tests (both transports, out-of-order and duplicate settling, teardown mid-call, double injection) on Node with the shells mocked, plus JVM unit tests for QR payload and version parsing. Both gated in CI. |
 
 The remaining work falls into five blocks. Block A needs no external
-accounts and can start immediately; B–E have external prerequisites or a
-decision gate.
+accounts, only a device and a reachable backend; B–E have external
+prerequisites or a decision gate.
 
 ---
 

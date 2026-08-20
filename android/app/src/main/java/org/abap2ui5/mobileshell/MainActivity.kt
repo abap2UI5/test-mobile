@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
         val url = Onboarding.onboard(this, contents)
         if (url != null) {
             saveEndpoint(url)
-            webView.loadUrl(url)
+            loadEndpoint(url)
         } else {
             Toast.makeText(this, getString(R.string.toast_qr_invalid), Toast.LENGTH_LONG).show()
         }
@@ -121,23 +121,20 @@ class MainActivity : AppCompatActivity() {
         // (see PushService); it wins over the configured endpoint once.
         val deepLink = intent.getStringExtra(PushService.EXTRA_DEEPLINK_URL)
         val url = deepLink ?: endpointUrl()
-        if (url.isNullOrBlank()) {
-            askForEndpoint()
-        } else {
-            warnOnCleartextEndpoint(url)
-            webView.loadUrl(url)
-        }
+        if (url.isNullOrBlank()) askForEndpoint() else loadEndpoint(url)
     }
 
     /**
-     * Cleartext is blocked by res/xml/network_security_config.xml, which
-     * would leave an http:// endpoint failing with a bare error page — name
-     * the actual reason instead.
+     * Every path to the SPA goes through here, so an http:// endpoint is
+     * named as the reason wherever it was entered. Cleartext is blocked by
+     * res/xml/network_security_config.xml and would otherwise leave nothing
+     * but a bare WebView error page.
      */
-    private fun warnOnCleartextEndpoint(url: String) {
+    private fun loadEndpoint(url: String) {
         if (url.startsWith("http://", ignoreCase = true)) {
             Toast.makeText(this, getString(R.string.endpoint_cleartext), Toast.LENGTH_LONG).show()
         }
+        webView.loadUrl(url)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -231,7 +228,7 @@ class MainActivity : AppCompatActivity() {
                 val url = input.text.toString().trim()
                 if (url.isNotEmpty()) {
                     saveEndpoint(url)
-                    webView.loadUrl(url)
+                    loadEndpoint(url)
                 }
             }
             .setNeutralButton(R.string.menu_qr_onboarding) { _, _ -> launchQrOnboarding() }

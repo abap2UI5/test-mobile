@@ -6,7 +6,10 @@ into the WebView. The shells bundle byte-identical copies:
 * `android/app/src/main/assets/native-bridge.js`
 * `ios/Resources/native-bridge.js`
 
-Edit here first, then sync the copies.
+Edit here first, then sync the copies. CI diffs all three and runs the
+contract tests in [`test/`](test/) — `node --test bridge/test/native-bridge.test.js`
+exercises the shim against both mocked transports (promise settling, out-of-
+order and duplicate resolves, transport teardown mid-call, re-injection).
 
 ## Contract v1
 

@@ -14,7 +14,7 @@ features exposed through a small JS bridge.
 | [`ios/`](ios/) | iOS shell — WKWebView, VisionKit scan, app lock, APNs push, managed config (XcodeGen) |
 | [`abap/`](abap/) | Sample app exercising the bridge + Mobile Services push client |
 | [`frontend-integration/`](frontend-integration/) | `NativeBridgeScan` custom control, staged for the frontend repo |
-| [`docs/`](docs/) | Distribution & hardening guide |
+| [`docs/`](docs/) | Distribution & hardening guide, [detailed open-work plan](docs/NEXT_STEPS.md) |
 
 Status: **Phases 0–4 implemented in PoC scope** (see the status table in
 PLAN.md). What still needs external accounts: the BTP SDK onboarding flow

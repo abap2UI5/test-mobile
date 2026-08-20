@@ -103,6 +103,9 @@ without SAP/Google/Apple accounts (remaining steps documented) · ⬜ open.
 | 3 | First-class bridge integration | 🔶 iOS VisionKit scanner + bridge v1 (`getPushToken`, `biometricConfirm`) shipped; `NativeBridgeScan` control ready to move (see `frontend-integration/`) |
 | 4 | Hardening & distribution | 🔶 managed config both platforms, CI builds, `docs/DISTRIBUTION.md` checklist; pinning/CSP verification are real-device tasks |
 
+The remaining work behind every 🔶 is broken down into an ordered,
+dependency-annotated backlog in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md).
+
 ### Phase 0 — plain shells + bridge (this PoC)
 
 No SDK dependency yet, so everything builds with stock tooling:

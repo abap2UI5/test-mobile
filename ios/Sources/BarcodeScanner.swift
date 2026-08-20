@@ -4,6 +4,12 @@ import VisionKit
 /// VisionKit-based barcode scanner for the bridge's scanBarcode() (Phase 3).
 /// Presents a DataScannerViewController modally; the first recognized or
 /// tapped barcode resolves the scan.
+///
+/// Main-actor isolated as a whole: DataScannerViewController is @MainActor,
+/// so reading isSupported/isAvailable or calling startScanning() from a
+/// nonisolated context does not compile. Callers are UI paths anyway (the
+/// WKScriptMessageHandler delivers on the main thread).
+@MainActor
 enum BarcodeScanner {
 
     static var isSupported: Bool {

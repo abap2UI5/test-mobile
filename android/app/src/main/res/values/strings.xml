@@ -10,6 +10,13 @@
     <string name="qr_onboarding_prompt">Scan the abap2UI5 onboarding QR code</string>
     <string name="toast_qr_invalid">QR code is not a valid onboarding payload</string>
     <string name="app_lock_title">Unlock abap2UI5 Shell</string>
+    <string name="app_lock_required_no_credential">Your administrator requires an app lock. Set up a screen lock or biometrics on this device, then start the app again.</string>
+    <string name="endpoint_cleartext">This endpoint uses http://. The shell allows HTTPS only — use an https:// URL.</string>
+    <string name="webview_outdated">The Android System WebView on this device is older than version %1$d. abap2UI5 apps may render incorrectly — please update it.</string>
     <string name="restriction_endpoint_title">abap2UI5 endpoint URL</string>
     <string name="restriction_endpoint_desc">Full URL of the abap2UI5 HTTP service, including sap-client if needed.</string>
+    <string name="restriction_app_lock_title">Require app lock</string>
+    <string name="restriction_app_lock_desc">Force biometric/device-credential unlock at app start. Users cannot switch it off; devices without an enrolled credential are blocked.</string>
+    <string name="restriction_screenshot_title">Block screenshots</string>
+    <string name="restriction_screenshot_desc">Prevent screenshots, screen recording and content in the recents thumbnail (FLAG_SECURE).</string>
 </resources>

@@ -1,0 +1,34 @@
+name: bridge
+
+# The shim is the one piece of the bridge that ships identically to both
+# shells and runs inside customer apps — check its contract on every change,
+# independently of the two (slow, platform-bound) shell builds.
+
+on:
+  push:
+    paths:
+      - "bridge/**"
+      - ".github/workflows/bridge.yml"
+  pull_request:
+    paths:
+      - "bridge/**"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The shells bundle byte-identical copies of the contract.
+      - name: Verify bridge shim is in sync
+        run: |
+          diff bridge/native-bridge.js android/app/src/main/assets/native-bridge.js
+          diff bridge/native-bridge.js ios/Resources/native-bridge.js
+
+      - name: Contract tests
+        run: node --test bridge/test/native-bridge.test.js

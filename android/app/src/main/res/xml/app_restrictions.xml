@@ -1,10 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- MDM managed configuration schema (Phase 4). EMMs read this to offer the
-     keys in their app-config UI; values arrive via RestrictionsManager. -->
+     keys in their app-config UI; values arrive via RestrictionsManager.
+
+     No android:defaultValue on the booleans on purpose: the shell
+     distinguishes "administrator set false" from "not managed at all"
+     (see ManagedConfig), and only keys an admin actually set are delivered. -->
 <restrictions xmlns:android="http://schemas.android.com/apk/res/android">
     <restriction
         android:key="endpoint_url"
         android:title="@string/restriction_endpoint_title"
         android:description="@string/restriction_endpoint_desc"
         android:restrictionType="string" />
+    <restriction
+        android:key="app_lock_enabled"
+        android:title="@string/restriction_app_lock_title"
+        android:description="@string/restriction_app_lock_desc"
+        android:restrictionType="bool" />
+    <restriction
+        android:key="screenshot_protection"
+        android:title="@string/restriction_screenshot_title"
+        android:description="@string/restriction_screenshot_desc"
+        android:restrictionType="bool" />
 </restrictions>

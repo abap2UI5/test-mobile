@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.view.Menu
 import android.view.MenuItem
+import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -53,7 +54,7 @@ class MainActivity : AppCompatActivity() {
 
     private val qrOnboardingLauncher = registerForActivityResult(ScanContract()) { result ->
         val contents = result.contents ?: return@registerForActivityResult
-        val url = Onboarding.parseQrPayload(this, contents)
+        val url = Onboarding.onboard(this, contents)
         if (url != null) {
             saveEndpoint(url)
             webView.loadUrl(url)
@@ -68,6 +69,15 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val managed = ManagedConfig.read(this)
+
+        // Keep the app out of screenshots and the recents thumbnail when the
+        // EMM asks for it (Phase 4). Must be set before the window shows.
+        if (managed.screenshotProtection == true) {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE)
+        }
 
         webView = WebView(this)
         setContentView(webView)
@@ -88,23 +98,46 @@ class MainActivity : AppCompatActivity() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        ManagedConfig.endpointOverride(this)?.let { saveEndpoint(it) }
+        managed.endpointUrl?.let { saveEndpoint(it) }
 
         if (AppLock.isEnabled(this)) {
             AppLock.gate(this,
                 onSuccess = { start() },
-                onFailure = { finish() })
+                onFailure = { reason ->
+                    if (reason == AppLock.Failure.NO_AUTHENTICATOR) {
+                        Toast.makeText(this, getString(R.string.app_lock_required_no_credential),
+                            Toast.LENGTH_LONG).show()
+                    }
+                    finish()
+                })
         } else {
             start()
         }
     }
 
     private fun start() {
+        warnOnOutdatedWebView()
         // A notification tap hands the target URL over as an extra
         // (see PushService); it wins over the configured endpoint once.
         val deepLink = intent.getStringExtra(PushService.EXTRA_DEEPLINK_URL)
         val url = deepLink ?: endpointUrl()
-        if (url.isNullOrBlank()) askForEndpoint() else webView.loadUrl(url)
+        if (url.isNullOrBlank()) {
+            askForEndpoint()
+        } else {
+            warnOnCleartextEndpoint(url)
+            webView.loadUrl(url)
+        }
+    }
+
+    /**
+     * Cleartext is blocked by res/xml/network_security_config.xml, which
+     * would leave an http:// endpoint failing with a bare error page — name
+     * the actual reason instead.
+     */
+    private fun warnOnCleartextEndpoint(url: String) {
+        if (url.startsWith("http://", ignoreCase = true)) {
+            Toast.makeText(this, getString(R.string.endpoint_cleartext), Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -128,21 +161,28 @@ class MainActivity : AppCompatActivity() {
         pausedAt = 0
     }
 
+    // Managed settings are not offered in the UI: an EMM-pushed endpoint
+    // would be restored on the next start anyway, and an enforced app lock
+    // must not be toggled away.
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(0, MENU_ENDPOINT, 0, getString(R.string.menu_endpoint))
-        menu.add(0, MENU_QR_ONBOARDING, 1, getString(R.string.menu_qr_onboarding))
-        menu.add(0, MENU_APP_LOCK, 2, getString(
-            if (AppLock.isEnabled(this)) R.string.menu_app_lock_disable
-            else R.string.menu_app_lock_enable))
+        if (ManagedConfig.read(this).endpointUrl == null) {
+            menu.add(0, MENU_ENDPOINT, 0, getString(R.string.menu_endpoint))
+            menu.add(0, MENU_QR_ONBOARDING, 1, getString(R.string.menu_qr_onboarding))
+        }
+        if (AppLock.isUserConfigurable(this)) {
+            menu.add(0, MENU_APP_LOCK, 2, getString(appLockMenuTitle()))
+        }
         return true
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        menu.findItem(MENU_APP_LOCK)?.title = getString(
-            if (AppLock.isEnabled(this)) R.string.menu_app_lock_disable
-            else R.string.menu_app_lock_enable)
+        menu.findItem(MENU_APP_LOCK)?.title = getString(appLockMenuTitle())
         return super.onPrepareOptionsMenu(menu)
     }
+
+    private fun appLockMenuTitle(): Int =
+        if (AppLock.isEnabled(this)) R.string.menu_app_lock_disable
+        else R.string.menu_app_lock_enable
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
         MENU_ENDPOINT -> { askForEndpoint(); true }
@@ -154,6 +194,21 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+    }
+
+    /**
+     * A WebView below the floor renders the UI5 SPA half-broken rather than
+     * failing outright — say so once instead of letting users debug it
+     * (PLAN.md risk 2). Non-blocking: the shell still tries to load.
+     */
+    private fun warnOnOutdatedWebView() {
+        WebViewVersion.logCurrent(this)
+        if (WebViewVersion.isBelowMinimum(this)) {
+            Toast.makeText(
+                this,
+                getString(R.string.webview_outdated, WebViewVersion.MINIMUM_MAJOR),
+                Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun endpointUrl(): String? =

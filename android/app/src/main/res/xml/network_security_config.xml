@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network policy of the shell (Phase 4 hardening).
+
+  * Cleartext is off: the shell talks to one SAP backend, and that is HTTPS
+    in every realistic deployment. A cleartext endpoint fails to load; the
+    shell warns about it at start so the failure is not silent.
+  * Trust anchors are the system store only (the platform default for
+    targetSdk 24+, made explicit here). Corporate CAs distributed as system
+    CAs by the EMM keep working; user-installed CAs do not, except in debug
+    builds — see debug-overrides, which is what makes proxy inspection
+    (Charles, mitmproxy) possible while developing.
+
+  Certificate pinning is a deployment decision, not a default (PLAN.md /
+  docs/DISTRIBUTION.md): it breaks TLS-inspecting proxies and turns a
+  certificate rotation into an app release. Where it is required, uncomment
+  the block below and fill in the pins.
+-->
+<network-security-config>
+
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+
+    <!--
+    Certificate pinning template — one domain-config per pinned host.
+
+    Always ship at least two pins (the current leaf/intermediate and a backup
+    key that is already provisioned), and set an expiration you can actually
+    meet with an app update; after it passes, pinning is skipped rather than
+    the app being bricked.
+
+    <domain-config>
+        <domain includeSubdomains="true">sap.example.com</domain>
+        <pin-set expiration="2027-01-01">
+            <pin digest="SHA-256">base64-of-current-SPKI==</pin>
+            <pin digest="SHA-256">base64-of-backup-SPKI==</pin>
+        </pin-set>
+    </domain-config>
+    -->
+
+</network-security-config>

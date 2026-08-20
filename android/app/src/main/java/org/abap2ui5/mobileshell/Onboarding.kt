@@ -13,32 +13,52 @@ import org.json.JSONObject
  *                     "msAppId": "com.example.app"}
  *     msHost/msAppId are optional and enable Mobile Services push
  *     registration (see MobileServicesPush).
+ *
+ * Parsing is kept free of Android APIs so it can be unit tested on the JVM
+ * (see src/test/.../OnboardingTest.kt); persistence lives in [onboard].
  */
 object Onboarding {
 
     private const val PREFS = "shell_prefs"
 
-    /** Returns the endpoint URL, or null when the payload is not usable. */
-    fun parseQrPayload(context: Context, payload: String): String? {
+    data class Payload(
+        val url: String,
+        val msHost: String? = null,
+        val msAppId: String? = null,
+    )
+
+    /** Parses a scanned payload; null when it is not a usable onboarding code. */
+    fun parseQrPayload(payload: String): Payload? {
         val trimmed = payload.trim()
         if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
-            return trimmed
+            return Payload(trimmed)
         }
         if (trimmed.startsWith("{")) {
             return try {
                 val json = JSONObject(trimmed)
-                val url = json.optString("url").takeIf { it.isNotBlank() } ?: return null
-                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
-                    json.optString("msHost").takeIf { it.isNotBlank() }
-                        ?.let { putString(MobileServicesPush.KEY_MS_HOST, it) }
-                    json.optString("msAppId").takeIf { it.isNotBlank() }
-                        ?.let { putString(MobileServicesPush.KEY_MS_APP_ID, it) }
-                }.apply()
-                url
+                val url = json.optString("url").trim().takeIf { it.isNotBlank() } ?: return null
+                Payload(
+                    url = url,
+                    msHost = json.optString("msHost").trim().takeIf { it.isNotBlank() },
+                    msAppId = json.optString("msAppId").trim().takeIf { it.isNotBlank() },
+                )
             } catch (e: Exception) {
                 null
             }
         }
         return null
+    }
+
+    /**
+     * Parses and stores a scanned payload.
+     * Returns the endpoint URL, or null when the payload is not usable.
+     */
+    fun onboard(context: Context, payload: String): String? {
+        val parsed = parseQrPayload(payload) ?: return null
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
+            parsed.msHost?.let { putString(MobileServicesPush.KEY_MS_HOST, it) }
+            parsed.msAppId?.let { putString(MobileServicesPush.KEY_MS_APP_ID, it) }
+        }.apply()
+        return parsed.url
     }
 }

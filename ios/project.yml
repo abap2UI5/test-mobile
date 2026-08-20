@@ -18,5 +18,12 @@ targets:
         UILaunchScreen: {}
         NSCameraUsageDescription: Camera access is used for barcode scanning.
         NSFaceIDUsageDescription: Face ID is used for the app lock and to confirm actions.
+        # HTTPS only, no per-domain exceptions — the counterpart of the
+        # Android network_security_config. This is the ATS default, spelled
+        # out so that adding an exception has to be a deliberate edit.
+        # Certificate pinning is a deployment decision, not a default; see
+        # docs/DISTRIBUTION.md.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
     # Push (Phase 2) additionally needs the aps-environment entitlement and
     # a signed build — add via Signing & Capabilities once a team is set.

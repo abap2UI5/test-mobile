@@ -64,8 +64,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 struct RootView: View {
     @AppStorage("endpoint_url") private var endpointURL: String = ""
-    @AppStorage("app_lock_enabled") private var appLockEnabled: Bool = false
+    @AppStorage("app_lock_enabled") private var appLockPreference: Bool = false
+    @State private var managed = ManagedConfig.Values()
     @State private var unlocked = false
+    @State private var lockedOut = false
     @State private var showSettings = false
     @State private var draftURL: String = ""
     @State private var currentURL: String = ""
@@ -75,10 +77,26 @@ struct RootView: View {
 
     private static let backgroundReloadSeconds: TimeInterval = 30 * 60
 
+    /// A managed value wins over the user preference and cannot be toggled.
+    private var appLockEnabled: Bool { managed.appLockEnabled ?? appLockPreference }
+    private var appLockManaged: Bool { managed.appLockEnabled != nil }
+    private var appLockEnforced: Bool { managed.appLockEnabled == true }
+
     var body: some View {
         NavigationStack {
             Group {
-                if appLockEnabled && !unlocked {
+                if lockedOut {
+                    // Enforced lock without an enrolled credential: fail
+                    // closed, unlike the user-chosen lock below.
+                    VStack(spacing: 16) {
+                        Image(systemName: "lock.trianglebadge.exclamationmark.fill")
+                            .font(.largeTitle)
+                        Text("Your administrator requires an app lock. Set up Face ID, Touch ID or a passcode on this device, then start the app again.")
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 32)
+                    }
+                } else if appLockEnabled && !unlocked {
                     VStack(spacing: 16) {
                         Image(systemName: "lock.fill").font(.largeTitle)
                         Button("Unlock") { authenticate() }
@@ -93,23 +111,40 @@ struct RootView: View {
             }
             .navigationTitle("abap2UI5")
             .navigationBarTitleDisplayMode(.inline)
+            // Managed settings are not offered in the UI: an EMM-pushed
+            // endpoint would be restored on the next start anyway, and an
+            // enforced app lock must not be toggled away.
             .toolbar {
-                Menu {
-                    Button("Set endpoint") {
-                        draftURL = endpointURL
-                        showSettings = true
+                if managed.endpointURL == nil || !appLockManaged {
+                    Menu {
+                        if managed.endpointURL == nil {
+                            Button("Set endpoint") {
+                                draftURL = endpointURL
+                                showSettings = true
+                            }
+                        }
+                        if !appLockManaged {
+                            Button(appLockEnabled ? "Disable app lock" : "Enable app lock") {
+                                appLockPreference.toggle()
+                                unlocked = true
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "gearshape")
                     }
-                    Button(appLockEnabled ? "Disable app lock" : "Enable app lock") {
-                        appLockEnabled.toggle()
-                        unlocked = true
-                    }
-                } label: {
-                    Image(systemName: "gearshape")
+                }
+            }
+            // Keep business data out of the app-switcher snapshot when the
+            // EMM asks for it. iOS cannot block screenshots or recordings
+            // outright — see docs/DISTRIBUTION.md.
+            .overlay {
+                if managed.screenshotProtection == true && scenePhase != .active {
+                    privacyCover
                 }
             }
             .onAppear {
                 applyManagedConfig()
-                if endpointURL.isEmpty { showSettings = true }
+                if endpointURL.isEmpty && managed.endpointURL == nil { showSettings = true }
                 if appLockEnabled { authenticate() }
             }
             .onChange(of: scenePhase) { phase in
@@ -151,20 +186,29 @@ struct RootView: View {
     /// Deep link (if any) wins once, otherwise the configured endpoint.
     private var activeURL: String { currentURL.isEmpty ? endpointURL : currentURL }
 
-    /// MDM managed configuration (Phase 4): standard managed-app defaults
-    /// dictionary, key "endpoint_url" — mirrors Android's ManagedConfig.
-    private func applyManagedConfig() {
-        if let managed = UserDefaults.standard.dictionary(forKey: "com.apple.configuration.managed"),
-           let url = managed["endpoint_url"] as? String, !url.isEmpty {
-            endpointURL = url
+    private var privacyCover: some View {
+        ZStack {
+            Rectangle().fill(.background)
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
         }
+        .ignoresSafeArea()
+    }
+
+    private func applyManagedConfig() {
+        managed = ManagedConfig.read()
+        if let url = managed.endpointURL { endpointURL = url }
     }
 
     private func authenticate() {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            unlocked = true // no authenticator enrolled — fail open in the PoC
+            // No authenticator enrolled: a user-chosen lock fails open (not
+            // locking someone out of their own shell), an enforced one fails
+            // closed — same rule as Android's AppLock.
+            if appLockEnforced { lockedOut = true } else { unlocked = true }
             return
         }
         context.evaluatePolicy(.deviceOwnerAuthentication,

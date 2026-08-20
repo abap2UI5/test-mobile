@@ -8,14 +8,30 @@ in execution order, with dependencies and acceptance criteria.
 
 * Phases 0–4 are implemented in PoC scope (see status table in PLAN.md).
 * No open GitHub issues or pull requests.
-* CI: `build_android` is **green** on `main`; `build_ios` is **red** on
-  `main` (see task A1 — tooling mismatch, not a code bug).
+* CI builds both shells and tests the bridge contract. The iOS build is
+  green **for the first time** — before task A1 it never reached the
+  compiler at all.
+* Everything achievable without an SAP/Google/Apple account has been done —
+  see *Recently completed*. What is left needs real devices, external
+  accounts, or a maintainer decision.
 * The Phase-3 artifacts (`NativeBridgeScan`, view-builder snippet) are still
   staged in [`frontend-integration/`](../frontend-integration/) and have
   **not** been moved into the framework repos yet.
 * One open code TODO: `android/.../MobileServicesPush.kt` — the push
   registration call needs the Phase-1 Mobile Services session (returns 401
   unauthenticated until then).
+
+### Recently completed
+
+| Task | Outcome |
+|------|---------|
+| A1 | `build_ios` green. Two causes, not one: XcodeGen writes Xcode project format 77, which the Xcode 15.4 of the `macos-14` image cannot read (→ `macos-15`), and once the compiler was reachable, `BarcodeScanner.swift` failed on the main-actor isolation of `DataScannerViewController`. |
+| E1 (partly) | TLS policy enforced on both platforms: Android `network_security_config` (no cleartext, system trust anchors, user CAs in debug builds only) with a commented pinning template, iOS `NSAllowsArbitraryLoads: false`. An `http://` endpoint is refused with an explanation instead of a blank WebView. The **pinning decision itself is still open** (E1 below). |
+| E3 | `app_lock_enabled` manageable by EMM on both platforms; the user toggle disappears and an enforced lock fails closed where no credential is enrolled. |
+| E4 | The Android shell logs the WebView provider/version at start and warns below a documented floor (`WebViewVersion.MINIMUM_MAJOR`). |
+| E5 | `screenshot_protection` manageable by EMM: Android `FLAG_SECURE`, iOS content cover while not in the foreground (documented limitation — iOS cannot block screenshots). |
+| A2/A3 (prep) | [`TESTING.md`](TESTING.md) — device runbook for bridge smoke test, session expiry, QR onboarding, managed config (TestDPC / `simctl` recipes, no EMM needed), TLS policy, WebView floor. Executing it still needs hardware. |
+| Test layer | Bridge shim contract tests (both transports, out-of-order and duplicate settling, teardown mid-call, double injection) on Node with the shells mocked, plus JVM unit tests for QR payload and version parsing. Both gated in CI. |
 
 The remaining work falls into five blocks. Block A needs no external
 accounts and can start immediately; B–E have external prerequisites or a
@@ -25,33 +41,33 @@ decision gate.
 
 ## Block A — immediate, no external accounts (unblocks everything else)
 
-### A1. Fix the red iOS CI build
+### A1. Fix the red iOS CI build — **done**
 
-`build_ios` fails on `main`: unpinned `brew install xcodegen` now installs
-XcodeGen 2.45.4, which emits Xcode project format 77; the `macos-14` runner
-has Xcode 15.4, which cannot read it:
+The red build had two independent causes, the second only visible once the
+first was out of the way:
 
-> The project 'Abap2UI5Shell' cannot be opened because it is in a future
-> Xcode project file format (77).
+1. Unpinned `brew install xcodegen` writes Xcode project format 77, which
+   the Xcode 15.4 of the `macos-14` image cannot open
+   (*"in a future Xcode project file format (77)"*). Fixed by moving to
+   `macos-15`; the workflow now echoes the `xcodebuild`/`xcodegen` versions
+   so the same drift is diagnosable from the log alone if the runner image
+   ever falls behind XcodeGen again.
+2. With the project readable, `xcodebuild` reached the compiler for the
+   first time and rejected `BarcodeScanner.swift`:
+   `DataScannerViewController` is `@MainActor`, so reading
+   `isSupported`/`isAvailable` from the nonisolated enum is an error. Fixed
+   by isolating the enum to the main actor — every caller is a UI path
+   already delivered on the main thread.
 
-Fix options (either works, first is smaller):
-
-1. Keep `macos-14` and force a compatible format — pin XcodeGen to a 2.4x
-   version that emits format ≤ 60, or set the project format explicitly in
-   `ios/project.yml` (XcodeGen `options.xcodeVersion` /
-   `objectVersion`-compatible setting).
-2. Move the workflow to `macos-15` and select an Xcode 16+ toolchain.
-
-Also worth doing in the same pass: pin the XcodeGen version in the workflow
-regardless of the option chosen, so the build cannot drift again.
-
-**Acceptance:** `build_ios` green on `main`.
+Only ever fixing the first would have replaced a red build with a red
+build; that the second existed at all is what the "never compiled outside
+CI" note in PLAN.md was warning about.
 
 ### A2. First real build + on-device smoke test (Phase 0 exit criterion)
 
-PLAN.md notes the projects were authored without local toolchains and have
-never been compiled outside CI. CI proves the Android build; nobody has yet
-run the shells against a real backend.
+CI now proves that both shells compile. Nobody has yet run either against a
+real backend — follow [`TESTING.md`](TESTING.md), which lists the checks
+per platform.
 
 * Run the Android shell on a device/emulator against a real abap2UI5
   endpoint; execute `zcl_test_mobile_poc`: device info, toast, ZXing scan.
@@ -68,16 +84,16 @@ the same flow demonstrated on an iOS device.
 
 ### A3. QR onboarding + managed-config paths verified
 
-Both were built account-free but never exercised end to end:
+Both were built account-free but never exercised end to end. The steps are
+now written down — sections 3 and 4 of [`TESTING.md`](TESTING.md), including
+how to feed managed config without an EMM (TestDPC on Android, `simctl
+defaults` on iOS) — so this task is running them, not designing them.
 
-* QR onboarding with plain-URL payload and with JSON payload
-  (`{"url", "msHost", "msAppId"}`).
-* Managed config: push `endpoint_url` via a test EMM (or `adb` restrictions
-  / Apple Configurator) and confirm the precedence chain
-  *managed config > stored preference > manual/QR*.
+The QR payload shapes are covered by JVM unit tests, the managed-config
+precedence and the enforced app lock are not: those need a device.
 
-**Acceptance:** documented walkthrough (screenshots or step list) added to
-`docs/`, corrections filed where behavior deviates.
+**Acceptance:** the runbook executed on both platforms, with corrections
+filed where behavior deviates from it.
 
 ---
 
@@ -171,21 +187,24 @@ nothing (or a hidden control) in a plain browser.
 
 ## Block E — production hardening & distribution (Phase 4 leftovers)
 
-Real-device / rollout tasks, mostly independent; E1–E2 before any pilot
-with real data.
+E3–E5 are implemented (see *Recently completed*); what remains are the
+decisions and the real-device/rollout work. E1–E2 before any pilot with
+real data.
 
-* E1. **Certificate pinning decision** and, if pinned, implementation:
-  Android `network_security_config`, iOS `URLSession`/WKWebView challenge
-  handler — or a documented decision against it (proxy/TLS-inspection
-  landscapes).
+* E1. **Certificate pinning decision.** The groundwork is in place — TLS is
+  enforced on both platforms and a `domain-config` template with pin-set
+  placeholders sits in `network_security_config.xml`; iOS additionally needs
+  a WKWebView challenge handler if the answer is yes. What is missing is the
+  decision itself, which is a landscape question, not a coding one: pinning
+  breaks TLS-inspecting proxies and turns certificate rotation into an app
+  release. Decide, then either fill in the pins (with a backup pin and a
+  meetable expiration) or record why not.
 * E2. **CSP verification**: confirm the natively-injected shim keeps working
-  under hardened UI5 CSP settings on both platforms.
-* E3. App lock enforceable via managed config: wire `app_lock_enabled` into
-  the Android restrictions schema and the iOS managed-config dictionary.
-* E4. Define the minimum Android System WebView version for EMM rollouts
-  (risk 2) in `docs/DISTRIBUTION.md`.
-* E5. Screenshot/recents protection (`FLAG_SECURE` / iOS blur) — decide per
-  sensitivity of the target apps.
+  under hardened UI5 CSP settings on both platforms — needs a real backend
+  ([`TESTING.md`](TESTING.md) §7).
+* E4a. Pin the WebView floor in the EMM's compliance rules to the same
+  number the shell warns at, and re-check `WebViewVersion.MINIMUM_MAJOR`
+  against the UI5 version the backend actually serves.
 * E6. Observability: enable MS client log upload + usage analytics (needs B).
 * E7. Distribution execution per `docs/DISTRIBUTION.md`: EMM rollout
   (managed Play private track / ABM custom app); public-store option later
@@ -199,12 +218,12 @@ or consciously waived per item.
 ## Suggested sequence
 
 ```
-A1 ──► A2 ──► A3 ──► D0 (decision) ──► D1–D3 ──► D4 (as needed)
-               │
-               └──► B1 ──► B2 ──► B3 ──► B4/B5 ──► C1–C4 ──► E6
-E1–E5, E7 in parallel once A2 provides real devices
+A1 ✔ ──► A2 ──► A3 ──► D0 (decision) ──► D1–D3 ──► D4 (as needed)
+                │
+                └──► B1 ──► B2 ──► B3 ──► B4/B5 ──► C1–C4 ──► E6
+E1, E2, E4a, E7 in parallel once A2 provides real devices
 ```
 
-Rule of thumb: everything in A is a normal PR against this repo today;
-B and C are blocked on accounts/credentials, not on code; D needs a
-maintainer decision; E belongs to the first real rollout.
+Rule of thumb: what could be done in this repo without accounts or hardware
+is done; A2/A3 and E1/E2 now need devices, B and C accounts and credentials,
+D a maintainer decision, E7 the first real rollout.

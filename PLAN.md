@@ -188,14 +188,18 @@ approach is accepted; contract extensions (NFC, share sheet) as needed.
 ### Phase 4 — hardening & distribution
 
 Shipped in this PoC: managed configuration on both platforms (Android
-restrictions schema, iOS `com.apple.configuration.managed`), CI builds for
-both shells with a bridge-sync gate (`.github/workflows/`), and the
-distribution/hardening guide [`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md)
-(EMM rollout, store strategy, security checklist).
+restrictions schema, iOS `com.apple.configuration.managed`) covering the
+endpoint, an enforceable app lock and screenshot protection; TLS enforced
+with no cleartext and a pinning template ready to fill in; a WebView version
+floor the Android shell warns about; CI that builds both shells, runs unit
+tests and gates the bridge contract (`.github/workflows/`); and the guides
+[`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md) (EMM rollout, store strategy,
+security checklist) and [`docs/TESTING.md`](docs/TESTING.md) (device
+verification runbook).
 
-Remaining (real-device/production tasks): certificate-pinning decision and
-implementation, CSP verification on hardened UI5 settings, log upload and
-analytics via Mobile Services (needs Phase-1 SDK onboarding).
+Remaining (real-device/production tasks): the certificate-pinning decision,
+CSP verification on hardened UI5 settings, log upload and analytics via
+Mobile Services (needs Phase-1 SDK onboarding).
 
 ## Risks / open questions
 
@@ -217,6 +221,6 @@ analytics via Mobile Services (needs Phase-1 SDK onboarding).
 * **ABAP:** install `abap/zcl_test_mobile_poc.clas.abap` (requires abap2UI5),
   start it inside the shell, press the bridge buttons.
 
-Note: this PoC was authored in a container without Android/iOS toolchains —
-the projects follow standard templates but have not been compiled here yet.
-First local build may need minor version alignment (AGP/Kotlin/Xcode).
+CI builds both shells on every change, so they compile; what has not been
+done is running them against a real backend. The checks to work through on
+a device are in [`docs/TESTING.md`](docs/TESTING.md).

@@ -9,12 +9,12 @@ features exposed through a small JS bridge.
 
 | Directory | Content |
 |-----------|---------|
-| [`bridge/`](bridge/) | Bridge contract v1 + shared JS shim (source of truth) |
+| [`bridge/`](bridge/) | Bridge contract v1 + shared JS shim (source of truth) + contract tests |
 | [`android/`](android/) | Android shell — WebView, ZXing scan, QR onboarding, app lock, FCM push, managed config |
 | [`ios/`](ios/) | iOS shell — WKWebView, VisionKit scan, app lock, APNs push, managed config (XcodeGen) |
 | [`abap/`](abap/) | Sample app exercising the bridge + Mobile Services push client |
 | [`frontend-integration/`](frontend-integration/) | `NativeBridgeScan` custom control, staged for the frontend repo |
-| [`docs/`](docs/) | Distribution & hardening guide, [detailed open-work plan](docs/NEXT_STEPS.md) |
+| [`docs/`](docs/) | [Distribution & hardening](docs/DISTRIBUTION.md), [device test runbook](docs/TESTING.md), [detailed open-work plan](docs/NEXT_STEPS.md) |
 
 Status: **Phases 0–4 implemented in PoC scope** (see the status table in
 PLAN.md). What still needs external accounts: the BTP SDK onboarding flow

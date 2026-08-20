@@ -14,7 +14,12 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    # macos-15+ required: current XcodeGen writes Xcode project format 77,
+    # which the Xcode 15.4 of the macos-14 image cannot open. Keep runner
+    # image and XcodeGen in step — if this build ever fails with "future
+    # Xcode project file format", the runner's Xcode is behind XcodeGen
+    # again and the image needs bumping (versions are echoed below).
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +30,8 @@ jobs:
         working-directory: ios
         run: |
           brew install xcodegen
+          xcodebuild -version
+          xcodegen --version
           xcodegen generate
 
       - name: Build (simulator, unsigned)
